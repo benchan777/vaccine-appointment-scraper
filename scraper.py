@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
-import os, time, smtplib
+import os, time, smtplib, ssl
 
 load_dotenv()
 
@@ -14,7 +14,11 @@ proxy_index = 0
 
 def walgreens_scraper(location):
     driver = webdriver.Chrome(executable_path = os.getenv('webdriver_path'), options = options)
-    driver.get("https://www.walgreens.com/findcare/vaccination/covid-19")
+    try:
+        driver.get("https://www.walgreens.com/findcare/vaccination/covid-19")
+    except:
+        print("Failed to load page. Possible bad proxy. Swapping to new proxy")
+        proxy_rotator(driver)
     driver.find_element_by_xpath("//span[@class='btn btn__blue']").click() # Click "Schedule new appointment" button
     driver.get("https://www.walgreens.com/findcare/vaccination/covid-19/location-screening")
 
@@ -54,10 +58,12 @@ def walgreens_scraper(location):
         global availability
         if status != availability:
             if status == 'Appointments available!':
-                pass
+                send_text("available")
+                availability = "Appointments available!"
 
             elif status == 'Appointments unavailable':
-                pass
+                send_text("unavailable")
+                availability = "Appointments unavailable"
 
             else:
                 print("Availability N/A. Maybe scraping failed?")
@@ -81,7 +87,7 @@ def alert_element(driver):
         return alert
 
 def proxy_rotator(driver):
-    ''' Proxy rotator to deal with bot detection '''
+    ''' Proxy rotator to deal with bot detection and other page loading errors '''
     global proxy_index
     global options
     proxy_list = ['165.225.77.46:80', '168.119.137.56:3128', '173.249.13.171:3128']
@@ -106,7 +112,23 @@ def proxy_rotator(driver):
         return
 
 def send_text(availability):
-    pass
+    if availability == 'available':
+        message = f"""From: {os.getenv('email')}\nTo: {os.getenv('receiver_email')}\nSubject: Appointments are available!\n
+        
+Walgreens now has appointments available!\n
+Schedule an appointment here: https://www.walgreens.com/findcare/vaccination/covid-19/"""
+
+    else:
+        message = f"""From: {os.getenv('email')}\nTo: {os.getenv('receiver_email')}\nSubject: Appointments have filled\n
+        
+All appointment slots have no filled up.\n
+We will notify you when appointments are available again."""
+
+    context = ssl.create_default_context()
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context = context) as server:
+        server.login(os.getenv('email'), os.getenv('password'))
+        server.sendmail(os.getenv('email'), os.getenv('receiver_email'), message)
     
 if __name__ == "__main__":
     zip_code = input("Enter zip code to check for: ")
