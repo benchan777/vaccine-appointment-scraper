@@ -7,9 +7,6 @@ load_dotenv()
 
 # Configure options for Chrome webdriver
 options = webdriver.ChromeOptions()
-# options.add_argument('--disable-gpu')
-# options.add_argument('--no-sandbox')
-# options.add_argument('--headless')
 options.add_argument("--window-size=1720,1176")
 
 availability = ''
@@ -66,7 +63,7 @@ def walgreens_scraper(location):
                 print("Availability N/A. Maybe scraping failed?")
 
         driver.close()
-        time.sleep(7)
+        time.sleep(60)
 
 def alert_element(driver):
     ''' Check if the alert element exists '''
@@ -91,17 +88,21 @@ def proxy_rotator(driver):
 
     if proxy_index <= len(proxy_list) - 1:
         print(f"Attempting again with {proxy_list[proxy_index]}.")
+
+        # Re-instantiate ChromeOptions to use a new ip address
         options = webdriver.ChromeOptions()
         options.add_argument("--window-size=1280,720")
         options.add_argument('--proxy-server=%s' % proxy_list[proxy_index])
         proxy_index += 1
         return
-        
+
     else:
         print(f"Reached end of proxy list. Resetting back to default ip.")
-        proxy_index = 0
+
+        # Re-instantiate ChromeOptions to use user's ip address after we have exhausted the list of proxies
         options = webdriver.ChromeOptions()
         options.add_argument("--window-size=1920,1080")
+        proxy_index = 0
         return
 
 def send_text(availability):
